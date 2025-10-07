@@ -59,14 +59,51 @@ This is a secure file sharing system that uses the IDEA cipher (International Da
    - What action they performed (upload, view, download, decrypt, share)
    - When it happened
 
-## Testing the File Sharing
+## User Management
 
-This demo includes a user switcher feature to test file sharing:
+The system includes two default demo accounts:
+
+- **Alice Johnson** (alice@example.com)
+- **Bob Smith** (bob@example.com)
+
+### Switching Users
 
 1. Click on your username in the top-right corner
-2. Click "Add New User" to create additional test users
-3. Switch between users to test the sharing workflow
-4. Share a file from User A and then switch to User B to see it in "Shared With Me"
+2. Select another user to switch to their account
+3. All files and data are preserved between switches
+
+### Adding New Users
+
+1. Click on your username in the top-right corner
+2. Click "Add New User"
+3. Enter name and email
+4. The new user will be available for switching and file sharing
+
+### Logout
+
+1. Click on your username in the top-right corner
+2. Click "Logout" to switch back to the first default user (Alice)
+
+## Testing the File Sharing
+
+To test the complete file sharing workflow:
+
+1. Login as Alice Johnson
+2. Upload a file with an encryption key
+3. Share the file with Bob Smith (create a recipient password)
+4. Logout or switch to Bob Smith
+5. Go to "Shared With Me" tab
+6. Download the shared file using the recipient password
+
+## Data Persistence
+
+All data is stored in your browser's localStorage and persists across sessions:
+
+- **Files remain encrypted** and stored until you explicitly delete them
+- **User accounts** are saved and persist
+- **File shares** are maintained across browser sessions
+- **Access logs** are preserved for auditing
+- **Clear browser data** will delete all stored files and accounts
 
 ## Security Notes
 
@@ -77,6 +114,7 @@ This demo includes a user switcher feature to test file sharing:
 - **Access Control**: Files can only be accessed by the owner and users they've shared with
 - **Secure Key Transfer**: File keys are encrypted before sharing, ensuring end-to-end security
 - **Audit Trail**: All file operations are logged
+- **Persistent Storage**: Data is stored locally and remains until explicitly deleted
 
 ## Technical Details
 
@@ -91,6 +129,8 @@ This demo includes a user switcher feature to test file sharing:
 1. **Save Your Keys**: Always save encryption keys securely. Without the key, files cannot be decrypted.
 2. **Strong Keys**: Use long, complex keys with letters, numbers, and symbols.
 3. **Unique Keys**: Use different keys for different files for better security.
-4. **Regular Backups**: The demo uses localStorage, so clearing browser data will delete files.
+4. **Data Backup**: Export important files before clearing browser data - localStorage clears will delete everything.
 5. **Secure Sharing**: When sharing files, use strong recipient passwords and share them through secure channels.
 6. **Two-Layer Security**: The system uses two layers of encryption - one for the file and one for the key during sharing.
+7. **Demo Accounts**: The system starts with two demo accounts (Alice and Bob) - perfect for testing file sharing.
+8. **Data Persistence**: All uploaded files and user data persist permanently in localStorage until you delete them.

@@ -47,6 +47,13 @@ function App() {
     loadFiles();
   };
 
+  const handleLogout = () => {
+    storageManager.logout();
+    setCurrentUser(storageManager.getCurrentUser());
+    loadFiles();
+    setActiveTab('upload');
+  };
+
   const tabs = [
     { id: 'upload' as Tab, label: 'Upload', icon: Shield },
     { id: 'my-files' as Tab, label: 'My Files', icon: FileText },
@@ -72,7 +79,11 @@ function App() {
                 </p>
               </div>
             </div>
-            <UserSwitcher currentUser={currentUser} onUserChange={handleUserChange} />
+            <UserSwitcher
+              currentUser={currentUser}
+              onUserChange={handleUserChange}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       </header>

@@ -1,13 +1,14 @@
-import { Users, Plus } from 'lucide-react';
+import { Users, Plus, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { storageManager, User } from '../utils/storage';
 
 interface UserSwitcherProps {
   currentUser: User;
   onUserChange: (user: User) => void;
+  onLogout: () => void;
 }
 
-export function UserSwitcher({ currentUser, onUserChange }: UserSwitcherProps) {
+export function UserSwitcher({ currentUser, onUserChange, onLogout }: UserSwitcherProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -21,11 +22,20 @@ export function UserSwitcher({ currentUser, onUserChange }: UserSwitcherProps) {
       return;
     }
 
-    const user = storageManager.addUser(newUserEmail, newUserName);
-    setNewUserName('');
-    setNewUserEmail('');
-    setShowAddUser(false);
-    onUserChange(user);
+    try {
+      const user = storageManager.addUser(newUserEmail, newUserName);
+      setNewUserName('');
+      setNewUserEmail('');
+      setShowAddUser(false);
+      onUserChange(user);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to add user');
+    }
+  };
+
+  const handleLogout = () => {
+    setShowMenu(false);
+    onLogout();
   };
 
   return (
@@ -49,28 +59,40 @@ export function UserSwitcher({ currentUser, onUserChange }: UserSwitcherProps) {
           />
           <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-slate-200 z-20">
             <div className="p-2 border-b border-slate-200">
-              <p className="text-xs font-medium text-slate-600 px-3 py-2">Switch User</p>
+              <p className="text-xs font-medium text-slate-600 px-3 py-2">Current User</p>
+              <div className="px-3 py-2 bg-blue-50 rounded-lg">
+                <div className="font-semibold text-blue-900">{currentUser.displayName}</div>
+                <div className="text-xs text-blue-700">{currentUser.email}</div>
+              </div>
             </div>
-            <div className="p-2 max-h-64 overflow-y-auto">
-              {users.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => {
-                    onUserChange(user);
-                    setShowMenu(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                    user.id === currentUser.id
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'hover:bg-slate-100 text-slate-800'
-                  }`}
-                >
-                  <div className="font-medium">{user.displayName}</div>
-                  <div className="text-xs text-slate-600">{user.email}</div>
-                </button>
-              ))}
+            <div className="p-2 border-b border-slate-200">
+              <p className="text-xs font-medium text-slate-600 px-3 py-2">Switch to</p>
+              <div className="space-y-1">
+                {users
+                  .filter((user) => user.id !== currentUser.id)
+                  .map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => {
+                        onUserChange(user);
+                        setShowMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800 transition-colors"
+                    >
+                      <div className="font-medium">{user.displayName}</div>
+                      <div className="text-xs text-slate-600">{user.email}</div>
+                    </button>
+                  ))}
+              </div>
             </div>
-            <div className="p-2 border-t border-slate-200">
+            <div className="p-2 border-t border-slate-200 space-y-1">
+              <button
+                onClick={handleLogout}
+                className="w-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
               {!showAddUser ? (
                 <button
                   onClick={() => setShowAddUser(true)}

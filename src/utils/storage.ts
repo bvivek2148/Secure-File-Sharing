@@ -45,16 +45,35 @@ class FileStorageManager {
 
   private initDefaultUser(): void {
     if (this.users.size === 0) {
-      const defaultUser: User = {
-        id: 'user-1',
-        email: 'demo@example.com',
-        displayName: 'Demo User',
+      const alice: User = {
+        id: 'user-alice',
+        email: 'alice@example.com',
+        displayName: 'Alice Johnson',
       };
-      this.users.set(defaultUser.id, defaultUser);
-      this.currentUser = defaultUser;
+      const bob: User = {
+        id: 'user-bob',
+        email: 'bob@example.com',
+        displayName: 'Bob Smith',
+      };
+      this.users.set(alice.id, alice);
+      this.users.set(bob.id, bob);
+
+      const savedUserId = localStorage.getItem('currentUserId');
+      if (savedUserId && this.users.has(savedUserId)) {
+        this.currentUser = this.users.get(savedUserId)!;
+      } else {
+        this.currentUser = alice;
+        localStorage.setItem('currentUserId', alice.id);
+      }
       this.saveToLocalStorage();
     } else {
-      this.currentUser = Array.from(this.users.values())[0];
+      const savedUserId = localStorage.getItem('currentUserId');
+      if (savedUserId && this.users.has(savedUserId)) {
+        this.currentUser = this.users.get(savedUserId)!;
+      } else {
+        this.currentUser = Array.from(this.users.values())[0];
+        localStorage.setItem('currentUserId', this.currentUser.id);
+      }
     }
   }
 
@@ -121,7 +140,14 @@ class FileStorageManager {
     const user = this.users.get(userId);
     if (!user) return false;
     this.currentUser = user;
+    localStorage.setItem('currentUserId', userId);
     return true;
+  }
+
+  logout(): void {
+    localStorage.removeItem('currentUserId');
+    this.currentUser = Array.from(this.users.values())[0];
+    localStorage.setItem('currentUserId', this.currentUser.id);
   }
 
   getAllUsers(): User[] {
@@ -129,6 +155,13 @@ class FileStorageManager {
   }
 
   addUser(email: string, displayName: string): User {
+    const existingUser = Array.from(this.users.values()).find(
+      u => u.email === email
+    );
+    if (existingUser) {
+      throw new Error('User with this email already exists');
+    }
+
     const user: User = {
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       email,
@@ -137,6 +170,10 @@ class FileStorageManager {
     this.users.set(user.id, user);
     this.saveToLocalStorage();
     return user;
+  }
+
+  isDefaultUser(userId: string): boolean {
+    return userId === 'user-alice' || userId === 'user-bob';
   }
 
   storeFile(encryptedFile: EncryptedFile): string {
