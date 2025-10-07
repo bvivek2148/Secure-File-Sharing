@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Shield, FileText, Share2, Activity, User } from 'lucide-react';
+import { Shield, FileText, Share2, Activity } from 'lucide-react';
 import { FileUpload } from './components/FileUpload';
 import { FileList } from './components/FileList';
 import { AccessLogs } from './components/AccessLogs';
-import { storageManager, StoredFile, AccessLog } from './utils/storage';
+import { UserSwitcher } from './components/UserSwitcher';
+import { storageManager, StoredFile, AccessLog, User } from './utils/storage';
 
 type Tab = 'upload' | 'my-files' | 'shared' | 'logs';
 
@@ -40,6 +41,12 @@ function App() {
     setActiveTab('logs');
   };
 
+  const handleUserChange = (user: User) => {
+    storageManager.setCurrentUser(user.id);
+    setCurrentUser(user);
+    loadFiles();
+  };
+
   const tabs = [
     { id: 'upload' as Tab, label: 'Upload', icon: Shield },
     { id: 'my-files' as Tab, label: 'My Files', icon: FileText },
@@ -65,15 +72,7 @@ function App() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 px-4 py-2 bg-slate-100 rounded-lg">
-              <User className="w-5 h-5 text-slate-600" />
-              <div>
-                <div className="text-sm font-semibold text-slate-800">
-                  {currentUser.displayName}
-                </div>
-                <div className="text-xs text-slate-600">{currentUser.email}</div>
-              </div>
-            </div>
+            <UserSwitcher currentUser={currentUser} onUserChange={handleUserChange} />
           </div>
         </div>
       </header>

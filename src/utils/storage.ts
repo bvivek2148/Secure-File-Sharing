@@ -15,6 +15,7 @@ export interface FileShare {
   canReshare: boolean;
   expiresAt?: Date;
   createdAt: Date;
+  encryptedKey?: string;
 }
 
 export interface AccessLog {
@@ -116,6 +117,13 @@ class FileStorageManager {
     return this.currentUser!;
   }
 
+  setCurrentUser(userId: string): boolean {
+    const user = this.users.get(userId);
+    if (!user) return false;
+    this.currentUser = user;
+    return true;
+  }
+
   getAllUsers(): User[] {
     return Array.from(this.users.values());
   }
@@ -194,7 +202,8 @@ class FileStorageManager {
     fileId: string,
     sharedWithUserId: string,
     canReshare: boolean = false,
-    expiresAt?: Date
+    expiresAt?: Date,
+    encryptedKey?: string
   ): boolean {
     const file = this.files.get(fileId);
     if (!file) return false;
@@ -216,6 +225,9 @@ class FileStorageManager {
     if (existingShare) {
       existingShare.canReshare = canReshare;
       existingShare.expiresAt = expiresAt;
+      if (encryptedKey) {
+        existingShare.encryptedKey = encryptedKey;
+      }
     } else {
       const share: FileShare = {
         fileId,
@@ -224,6 +236,7 @@ class FileStorageManager {
         canReshare,
         expiresAt,
         createdAt: new Date(),
+        encryptedKey,
       };
       this.shares.push(share);
 
@@ -301,6 +314,15 @@ class FileStorageManager {
     return this.accessLogs
       .filter((l) => l.fileId === fileId)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  getFileShare(fileId: string, userId: string): FileShare | undefined {
+    return this.shares.find(
+      (s) =>
+        s.fileId === fileId &&
+        s.sharedWith === userId &&
+        (!s.expiresAt || s.expiresAt > new Date())
+    );
   }
 
   clearAllData(): void {

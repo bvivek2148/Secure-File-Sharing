@@ -104,3 +104,25 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export function encryptKey(key: string, recipientPassword: string): string {
+  const cipher = new IDEA(recipientPassword);
+  const keyBytes = stringToBytes(key);
+  const encryptedBytes = cipher.encrypt(keyBytes);
+  return arrayBufferToBase64(encryptedBytes.buffer);
+}
+
+export function decryptKey(encryptedKey: string, recipientPassword: string): string {
+  const cipher = new IDEA(recipientPassword);
+  const encryptedBytes = new Uint8Array(base64ToArrayBuffer(encryptedKey));
+  const decryptedBytes = cipher.decrypt(encryptedBytes);
+
+  let actualSize = decryptedBytes.length;
+  while (actualSize > 0 && decryptedBytes[actualSize - 1] === 0) {
+    actualSize--;
+  }
+
+  const trimmedBytes = decryptedBytes.slice(0, actualSize);
+  const decoder = new TextDecoder();
+  return decoder.decode(trimmedBytes);
+}

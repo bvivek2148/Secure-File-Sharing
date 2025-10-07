@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { File, Download, Trash2, Share2, Clock, User, Key } from 'lucide-react';
+import { File, Download, Trash2, Share2, Clock, User, Key, Lock } from 'lucide-react';
 import { StoredFile, storageManager } from '../utils/storage';
-import { decryptFile, downloadBlob } from '../utils/crypto';
+import { decryptFile, downloadBlob, encryptKey, decryptKey } from '../utils/crypto';
 
 interface FileListProps {
   files: StoredFile[];
@@ -13,6 +13,8 @@ export function FileList({ files, onFileChange, showSharedBy = false }: FileList
   const [decryptingFileId, setDecryptingFileId] = useState<string | null>(null);
   const [decryptionKey, setDecryptionKey] = useState('');
   const [sharingFileId, setSharingFileId] = useState<string | null>(null);
+  const [sharingKey, setSharingKey] = useState('');
+  const [recipientPassword, setRecipientPassword] = useState('');
 
   const handleDecrypt = async (file: StoredFile) => {
     if (!decryptionKey) {
@@ -26,7 +28,20 @@ export function FileList({ files, onFileChange, showSharedBy = false }: FileList
     }
 
     try {
-      const blob = await decryptFile(file, decryptionKey);
+      let fileKey = decryptionKey;
+
+      if (showSharedBy) {
+        const share = storageManager.getFileShare(file.id, storageManager.getCurrentUser().id);
+        if (share?.encryptedKey) {
+          try {
+            fileKey = decryptKey(share.encryptedKey, decryptionKey);
+          } catch (error) {
+            throw new Error('Invalid recipient password');
+          }
+        }
+      }
+
+      const blob = await decryptFile(file, fileKey);
       downloadBlob(blob, file.filename);
 
       storageManager.logAccess(file.id, storageManager.getCurrentUser().id, 'decrypt');
@@ -38,7 +53,7 @@ export function FileList({ files, onFileChange, showSharedBy = false }: FileList
     } catch (error) {
       console.error('Decryption error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to decrypt file: ${errorMessage}\nPlease check your decryption key and try again.`);
+      alert(`Failed to decrypt file: ${errorMessage}\nPlease check your ${showSharedBy ? 'recipient password' : 'decryption key'} and try again.`);
     }
   };
 
@@ -55,15 +70,38 @@ export function FileList({ files, onFileChange, showSharedBy = false }: FileList
 
   const handleShare = (fileId: string) => {
     setSharingFileId(fileId);
+    setSharingKey('');
+    setRecipientPassword('');
   };
 
   const handleShareSubmit = (fileId: string, userId: string) => {
-    if (storageManager.shareFile(fileId, userId, false)) {
-      setSharingFileId(null);
-      onFileChange();
-      alert('File shared successfully');
-    } else {
-      alert('Failed to share file');
+    if (!sharingKey) {
+      alert('Please enter the file encryption key');
+      return;
+    }
+    if (!recipientPassword) {
+      alert('Please enter a recipient password to protect the key');
+      return;
+    }
+    if (recipientPassword.length < 7) {
+      alert('Recipient password must be at least 7 characters long');
+      return;
+    }
+
+    try {
+      const encryptedKey = encryptKey(sharingKey, recipientPassword);
+      if (storageManager.shareFile(fileId, userId, false, undefined, encryptedKey)) {
+        setSharingFileId(null);
+        setSharingKey('');
+        setRecipientPassword('');
+        onFileChange();
+        alert(`File shared successfully!\n\nRecipient password: ${recipientPassword}\n\nPlease share this password securely with the recipient.`);
+      } else {
+        alert('Failed to share file');
+      }
+    } catch (error) {
+      console.error('Sharing error:', error);
+      alert('Failed to encrypt sharing key');
     }
   };
 
@@ -151,14 +189,19 @@ export function FileList({ files, onFileChange, showSharedBy = false }: FileList
           {decryptingFileId === file.id && (
             <div className="mt-4 pt-4 border-t border-slate-200">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Enter Decryption Key
+                {showSharedBy ? 'Enter Recipient Password' : 'Enter Decryption Key'}
               </label>
+              {showSharedBy && (
+                <p className="text-xs text-slate-600 mb-2">
+                  Enter the recipient password that was shared with you
+                </p>
+              )}
               <div className="flex gap-2">
                 <input
                   type="password"
                   value={decryptionKey}
                   onChange={(e) => setDecryptionKey(e.target.value)}
-                  placeholder="Enter your encryption key"
+                  placeholder={showSharedBy ? "Enter recipient password" : "Enter your encryption key"}
                   className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -188,32 +231,73 @@ export function FileList({ files, onFileChange, showSharedBy = false }: FileList
 
           {sharingFileId === file.id && (
             <div className="mt-4 pt-4 border-t border-slate-200">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Share with User
-              </label>
-              <div className="space-y-2">
-                {storageManager
-                  .getAllUsers()
-                  .filter((u) => u.id !== storageManager.getCurrentUser().id)
-                  .map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleShareSubmit(file.id, user.id)}
-                      className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-left transition-colors flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-medium text-slate-800">
-                          {user.displayName}
-                        </div>
-                        <div className="text-sm text-slate-600">{user.email}</div>
-                      </div>
-                      <Share2 className="w-4 h-4 text-slate-600" />
-                    </button>
-                  ))}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    File Encryption Key
+                  </label>
+                  <p className="text-xs text-slate-600 mb-2">
+                    Enter the original encryption key for this file
+                  </p>
+                  <input
+                    type="password"
+                    value={sharingKey}
+                    onChange={(e) => setSharingKey(e.target.value)}
+                    placeholder="Enter file encryption key"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Recipient Password
+                  </label>
+                  <p className="text-xs text-slate-600 mb-2">
+                    Create a password for the recipient to decrypt the file (min 7 characters)
+                  </p>
+                  <input
+                    type="password"
+                    value={recipientPassword}
+                    onChange={(e) => setRecipientPassword(e.target.value)}
+                    placeholder="Create recipient password"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Select Recipient
+                  </label>
+                  <div className="space-y-2">
+                    {storageManager
+                      .getAllUsers()
+                      .filter((u) => u.id !== storageManager.getCurrentUser().id)
+                      .map((user) => (
+                        <button
+                          key={user.id}
+                          onClick={() => handleShareSubmit(file.id, user.id)}
+                          disabled={!sharingKey || !recipientPassword || recipientPassword.length < 7}
+                          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-left transition-colors flex items-center justify-between"
+                        >
+                          <div>
+                            <div className="font-medium">
+                              {user.displayName}
+                            </div>
+                            <div className="text-sm opacity-90">{user.email}</div>
+                          </div>
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                      ))}
+                  </div>
+                </div>
               </div>
               <button
-                onClick={() => setSharingFileId(null)}
-                className="w-full mt-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium transition-colors"
+                onClick={() => {
+                  setSharingFileId(null);
+                  setSharingKey('');
+                  setRecipientPassword('');
+                }}
+                className="w-full mt-4 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium transition-colors"
               >
                 Cancel
               </button>
